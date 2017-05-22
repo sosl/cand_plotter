@@ -33,12 +33,14 @@ x_axis = Select(title="X Axis", options=sorted(axis_map.keys()), value="DM")
 y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Time (s)")
 
 # Create Column Data Source that will be used by the plot
-source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[]))#, alpha=[]))
+source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
+    color=[]))#, alpha=[]))
 
 p = figure(plot_height=600, plot_width=700, title="", tools = 'box_zoom,reset' )#, tools=[hover])
-p.circle(x="x", y="y", source=source, size=7)#, color="color", line_color=None)#, fill_alpha="alpha")
+p.circle(x="x", y="y", source=source, size=7, color="color", line_color=None)#, fill_alpha="alpha")
 
 def select_cands():
+    cands["color"] = pd.Series("red", cands.index)
     return cands
 
 def update():
@@ -56,8 +58,8 @@ def update():
         DM=df["dm"],
         snr=df["#snr"],
         filter_width=df["filter"],
+        color=df["color"],
     )
-        #color=df["color"],
         #alpha=df["alpha"],
 
 update()  # initial load of the data
