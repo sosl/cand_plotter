@@ -36,10 +36,10 @@ y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Time (s)
 source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
     color=[]))#, alpha=[]))
 
-TOOLS = 'box_zoom, reset'
+TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
 
 p = figure(plot_height=600, plot_width=700, title="", tools = TOOLS )#, tools=[hover])
-p.circle(x="x", y="y", source=source, size=7, color="color", line_color=None)#, fill_alpha="alpha")
+cands_plot = p.circle(x="x", y="y", source=source, size=7, color="color", line_color=None)#, fill_alpha="alpha")
 
 def select_cands():
     cands["color"] = pd.Series("red", cands.index)
@@ -63,6 +63,11 @@ def update():
         color=df["color"],
     )
         #alpha=df["alpha"],
+
+def tap_callback(attr, old, new):
+    print "Selected candidate with index", new['1d']['indices'][0]
+
+cands_plot.data_source.on_change('selected', tap_callback)
 
 update()  # initial load of the data
 
