@@ -36,7 +36,9 @@ y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Time (s)
 source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
     color=[]))#, alpha=[]))
 
-p = figure(plot_height=600, plot_width=700, title="", tools = 'box_zoom,reset' )#, tools=[hover])
+TOOLS = 'box_zoom, reset'
+
+p = figure(plot_height=600, plot_width=700, title="", tools = TOOLS )#, tools=[hover])
 p.circle(x="x", y="y", source=source, size=7, color="color", line_color=None)#, fill_alpha="alpha")
 
 def select_cands():
