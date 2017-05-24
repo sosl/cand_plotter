@@ -6,6 +6,11 @@ from bokeh.io import curdoc
 from bokeh.models.widgets import Select
 from bokeh.layouts import layout
 
+# for fbank handling
+import numpy as np
+import mbplotlib
+from sigpyproc.Readers import FilReader
+
 cand_file = "20170424194451.ak10.cand" 
 
 cands = pd.read_csv(cand_file, header=0, delim_whitespace=True)
@@ -66,6 +71,44 @@ def update():
 
 def tap_callback(attr, old, new):
     print "Selected candidate with index", new['1d']['indices'][0]
+    _, _, _, time, series = get_fbank_data(478.399, 50686, 2**3)
+
+def get_fbank_data(dm, sample, width):
+    # based on Wael's filplot
+    fil_fn = "2017-04-24-19:45:44_0000000000000000.000000.21.fil"
+    fil = FilReader(fil_fn)
+
+    tsamp = fil.header.tsamp
+    tsamp_ms = fil.header.tsamp*1000.
+    backstep = int(200/tsamp_ms)
+    event_end = int(backstep*2 + width)
+
+    bw = fil.header.bandwidth
+
+    t_smear = np.ceil(((fil.header.bandwidth*8.3*dm)
+            / (fil.header.fcenter*10**(-3))**3)/(tsamp*1000000))
+    t_smear = int(1.05*t_smear)
+    t_extract = 2*backstep + 2*width + t_smear
+
+    if (sample-backstep+t_extract) > fil.header.nsamples:
+            raise RuntimeError("Filterbank out-of-bound", "End window is out of bounds")
+    # original filterbank
+    block = fil.readBlock(sample-backstep, t_extract)
+    # dedisperse d filterbank:
+    disp_block = block.dedisperse(dm)
+
+    # dedispersed filterbank convolved at the expected width
+    conv_arr = np.zeros((block.shape[0],event_end))
+
+    for i in xrange(conv_arr.shape[0]):
+            conv_arr[i] = mbplotlib.wrapper_conv_boxcar(np.array(disp_block[i,:event_end],
+                dtype=np.ctypeslib.ct.c_long),width)
+    conv_arr = conv_arr[:,:(-width-1)]
+
+    time  = np.arange(event_end)*tsamp_ms
+    series = disp_block.sum(axis=0)[:event_end]
+
+    return block, disp_block, conv_arr, time, series
 
 cands_plot.data_source.on_change('selected', tap_callback)
 
