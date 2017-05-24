@@ -41,10 +41,17 @@ y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Time (s)
 source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
     color=[]))#, alpha=[]))
 
+time = []
+series = []
+source_ts = ColumnDataSource(data=dict(time=time, series=series))
+
 TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
 
-p = figure(plot_height=600, plot_width=700, title="", tools = TOOLS )#, tools=[hover])
-cands_plot = p.circle(x="x", y="y", source=source, size=7, color="color", line_color=None)#, fill_alpha="alpha")
+cands_fig = figure(plot_height=600, plot_width=700, title="", tools = TOOLS )#, tools=[hover])
+cands_plot = cands_fig.circle(x="x", y="y", source=source, size=7, color="color", line_color=None)#, fill_alpha="alpha")
+
+timeseries_fig = figure(plot_height=600, plot_width=700, title="Time Series", tools = TOOLS )
+timeseries_plot = timeseries_fig.line(x="time", y="series", source=source_ts, line_width=2)
 
 def select_cands():
     cands["color"] = pd.Series("red", cands.index)
@@ -55,9 +62,9 @@ def update():
     x_name = axis_map[x_axis.value]
     y_name = axis_map[y_axis.value]
 
-    p.xaxis.axis_label = x_axis.value
-    p.yaxis.axis_label = y_axis.value
-    p.title.text = "%d candidates selected" % len(df)
+    cands_fig.xaxis.axis_label = x_axis.value
+    cands_fig.yaxis.axis_label = y_axis.value
+    cands_fig.title.text = "%d candidates present" % len(df)
     print "yooo"
     source.data = dict(
         x=df[x_name],
@@ -72,6 +79,8 @@ def update():
 def tap_callback(attr, old, new):
     print "Selected candidate with index", new['1d']['indices'][0]
     _, _, _, time, series = get_fbank_data(478.399, 50686, 2**3)
+    source_ts.data["time"] = time
+    source_ts.data["series"] = series
 
 def get_fbank_data(dm, sample, width):
     # based on Wael's filplot
@@ -116,6 +125,6 @@ update()  # initial load of the data
 
 
 desc = Div()
-l = layout([[desc], [p],])
+l = layout([[desc], [cands_fig, timeseries_fig],])
 curdoc().add_root(l)
 curdoc().title = "Candidates"
