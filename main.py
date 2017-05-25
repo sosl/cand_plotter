@@ -1,3 +1,6 @@
+import ConfigParser
+import os
+
 import pandas as pd
 
 from bokeh.plotting import figure
@@ -10,8 +13,17 @@ from bokeh.layouts import layout
 import numpy as np
 import mbplotlib
 from sigpyproc.Readers import FilReader
+CAND_PLOT_CFG = os.environ['HOME']+"/.candplotter.cfg"
 
-cand_file = "20170424194451.ak10.cand" 
+config = ConfigParser.ConfigParser()
+config.read(CAND_PLOT_CFG)
+if not config.sections():
+    raise RuntimeError("Config file not found", CAND_PLOT_CFG)
+
+TOP_DIR = config.get('data', 'topdir')
+CAND_TOP_DIR = config.get('cand', 'topdir')
+
+cand_file = CAND_TOP_DIR + "20170424194451.ak10.cand" 
 
 cands = pd.read_csv(cand_file, header=0, delim_whitespace=True)
 
@@ -41,9 +53,7 @@ y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Time (s)
 source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
     color=[]))#, alpha=[]))
 
-time = []
-series = []
-source_ts = ColumnDataSource(data=dict(time=time, series=series))
+source_ts = ColumnDataSource(data=dict(time=[], series=[]))
 source_fb = ColumnDataSource(data=dict(image=[]))
 
 TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
@@ -88,7 +98,7 @@ def tap_callback(attr, old, new):
 
 def get_fbank_data(dm, sample, width):
     # based on Wael's filplot
-    fil_fn = "2017-04-24-19:45:44_0000000000000000.000000.21.fil"
+    fil_fn = TOP_DIR + "2017-04-24-19:45:44_0000000000000000.000000.21.fil"
     fil = FilReader(fil_fn)
 
     tsamp = fil.header.tsamp
