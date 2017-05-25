@@ -7,7 +7,7 @@ from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, Div
 from bokeh.io import curdoc
 from bokeh.models.widgets import Select
-from bokeh.layouts import layout
+from bokeh.layouts import layout, widgetbox
 
 # for fbank handling
 import numpy as np
@@ -46,8 +46,8 @@ axis_map = {
     "Antenna": "antenna",
 }
 
-x_axis = Select(title="X Axis", options=sorted(axis_map.keys()), value="DM")
-y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Time (s)")
+cand_x_axis = Select(title="X Axis", options=sorted(axis_map.keys()), value="DM")
+cand_y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Time (s)")
 
 # Create Column Data Source that will be used by the plot
 source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
@@ -77,11 +77,11 @@ def select_cands():
 
 def update():
     df = select_cands()
-    x_name = axis_map[x_axis.value]
-    y_name = axis_map[y_axis.value]
+    x_name = axis_map[cand_x_axis.value]
+    y_name = axis_map[cand_y_axis.value]
 
-    cands_fig.xaxis.axis_label = x_axis.value
-    cands_fig.yaxis.axis_label = y_axis.value
+    cands_fig.xaxis.axis_label = cand_x_axis.value
+    cands_fig.yaxis.axis_label = cand_y_axis.value
     cands_fig.title.text = "%d candidates present" % len(df)
     print "yooo"
     source.data = dict(
@@ -143,8 +143,14 @@ cands_plot.data_source.on_change('selected', tap_callback)
 
 update()  # initial load of the data
 
+controls = [cand_x_axis, cand_y_axis]
+for control in controls:
+    control.on_change('value', lambda attr, old, new: update())
+
+sizing_mode='fixed'
+inputs = widgetbox(*controls, sizing_mode=sizing_mode)
 
 desc = Div()
-l = layout([[desc], [cands_fig, timeseries_fig], [dedisp_fig, conv_fig],])
+l = layout([[desc], [inputs], [cands_fig, timeseries_fig], [dedisp_fig, conv_fig]])
 curdoc().add_root(l)
 curdoc().title = "Candidates"
