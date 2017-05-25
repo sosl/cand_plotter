@@ -44,6 +44,7 @@ source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
 time = []
 series = []
 source_ts = ColumnDataSource(data=dict(time=time, series=series))
+source_fb = ColumnDataSource(data=dict(image=[]))
 
 TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
 
@@ -53,6 +54,8 @@ cands_plot = cands_fig.circle(x="x", y="y", source=source, size=7, color="color"
 timeseries_fig = figure(plot_height=600, plot_width=700, title="Time Series", tools = TOOLS )
 timeseries_plot = timeseries_fig.line(x="time", y="series", source=source_ts, line_width=2)
 
+dedisp_fig = figure(plot_height=600, plot_width=700, title="dedisp", tools ='box_zoom, reset', x_range=(0, 10), y_range=(0, 10) )
+dedisp_plot = dedisp_fig.image(image="image", x=0, y=0, dw=10, dh=10, source=source_fb, palette = 'Viridis256' )
 def select_cands():
     cands["color"] = pd.Series("red", cands.index)
     return cands
@@ -78,9 +81,10 @@ def update():
 
 def tap_callback(attr, old, new):
     print "Selected candidate with index", new['1d']['indices'][0]
-    _, _, _, time, series = get_fbank_data(478.399, 50686, 2**3)
+    _, _dedisp_block, _, time, series = get_fbank_data(478.399, 50686, 2**3)
     source_ts.data["time"] = time
     source_ts.data["series"] = series
+    source_fb.data["image"] = [_dedisp_block]
 
 def get_fbank_data(dm, sample, width):
     # based on Wael's filplot
@@ -125,6 +129,6 @@ update()  # initial load of the data
 
 
 desc = Div()
-l = layout([[desc], [cands_fig, timeseries_fig],])
+l = layout([[desc], [cands_fig], [timeseries_fig, dedisp_fig],])
 curdoc().add_root(l)
 curdoc().title = "Candidates"
