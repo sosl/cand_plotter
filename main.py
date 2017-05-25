@@ -95,12 +95,13 @@ def update():
         #alpha=df["alpha"],
 
 def tap_callback(attr, old, new):
-    print "Selected candidate with index", new['1d']['indices'][0]
-    _, _dedisp_block, _conv_block, time, series = get_fbank_data(478.399, 50686, 2**3)
-    source_ts.data["time"] = time
-    source_ts.data["series"] = series
-    source_fb.data["image"] = [_dedisp_block]
-    source_fb_conv.data["image"] = [_conv_block]
+    if len(new['1d']['indices']) > 0:
+        print "Selected candidate with index", new['1d']['indices'][0]
+        _, _dedisp_block, _conv_block, time, series = get_fbank_data(478.399, 50686, 2**3)
+        source_ts.data["time"] = time
+        source_ts.data["series"] = series
+        source_fb.data["image"] = [_dedisp_block]
+        source_fb_conv.data["image"] = [_conv_block]
 
 def get_fbank_data(dm, sample, width):
     # based on Wael's filplot
