@@ -8,6 +8,10 @@ from bokeh.models import ColumnDataSource, Div
 from bokeh.io import curdoc
 from bokeh.models.widgets import Select
 from bokeh.layouts import layout, widgetbox
+#choose palette for filter to color mapping. If more than 8 filter widths allowed, different palette will be needed
+from bokeh.palettes import Spectral8
+
+filter_palette = Spectral8
 
 # for fbank handling
 import numpy as np
@@ -55,7 +59,6 @@ def update_cand_file():
     _cands = pd.read_csv(cand_file, header=0, delim_whitespace=True)
     for column in _cands.columns.values:
         cands[column] = _cands[column]
-    print "loaded cands", _cands["beam"].count(), cands["beam"].count()
     update()
 
 axis_map = {
@@ -77,7 +80,7 @@ cand_y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Tim
 
 # Create Column Data Source that will be used by the plot
 source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
-    sample=[], beam=[], color=[]))#, alpha=[]))
+    sample=[], beam=[], color=[], alpha=[]))
 
 source_ts = ColumnDataSource(data=dict(time=[], series=[]))
 source_fb = ColumnDataSource(data=dict(image=[]))
@@ -87,7 +90,8 @@ TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
 
 cands_fig = figure(plot_height=600, plot_width=700, title="", tools = TOOLS,
         toolbar_location='right')
-cands_plot = cands_fig.circle(x="x", y="y", source=source, size=7, color="color", line_color=None)#, fill_alpha="alpha")
+cands_plot = cands_fig.circle(x="x", y="y", source=source, size=7,
+        color="color", line_color=None, fill_alpha="alpha")
 
 timeseries_fig = figure(plot_height=300, plot_width=1400, title="Time Series",
         tools = 'box_zoom, reset', toolbar_location='right')
@@ -105,7 +109,7 @@ conv_plot = conv_fig.image(image="image", x=0, y=0, dw=10, dh=10,
         source=source_fb_conv, palette = 'Viridis256')
 
 def select_cands():
-    cands["color"] = pd.Series("red", cands.index)
+    cands["color"] = pd.Series("blue", cands.index)
     return cands
 
 def update():
@@ -123,11 +127,13 @@ def update():
         DM=df["dm"],
         snr=df["#snr"],
         filter_width=df["filter"],
-        color=df["color"],
         sample=df["sample"],
         beam=df["beam"],
+        # set color based on width:
+        color=[filter_palette[width] for width in df["filter"]],
+        # set alpha: 0.33 for S/N of 6, 1.0 for 10+
+        alpha=[(snr-4.)/6. if snr <=10. else 1.0 for snr in df["#snr"]],
     )
-        #alpha=df["alpha"],
 
 def tap_callback(attr, old, new):
     if len(new['1d']['indices']) > 0:
