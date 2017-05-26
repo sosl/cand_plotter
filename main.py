@@ -1,5 +1,5 @@
 import ConfigParser
-import os
+import os, glob
 
 import pandas as pd
 
@@ -23,14 +23,40 @@ if not config.sections():
 TOP_DIR = config.get('data', 'topdir')
 CAND_TOP_DIR = config.get('cand', 'topdir')
 
-cand_file = CAND_TOP_DIR + "20170424194451.ak10.cand" 
+SB_ids = [os.path.basename(SB) for SB in glob.glob(TOP_DIR+"/SB*")]
+SB_selector = Select(title="Scheduling block", options=sorted(SB_ids))#, value=SB_ids[0])
 
-cands = pd.read_csv(cand_file, header=0, delim_whitespace=True)
+UTCs = [os.path.basename(UTC) for UTC in glob.glob(TOP_DIR+SB_selector.value+"/20*")]
+UTC_selector = Select(title="UTC", options=sorted(UTCs))#, value=UTCs[0])
 
-# rename first column from #snr to snr
-#col_names = cands.columnes.values
-#col_names[0] = 'snr'
-#cands.columns = col_names
+
+antennas = [os.path.basename(cf) for cf in glob.glob(TOP_DIR+SB_selector.value+"/" + UTC_selector.value + "/ak*")]
+antennas_selector = Select(title="Antenna file", options = sorted(antennas))#, value= antennas[0])
+
+cand_file = CAND_TOP_DIR + SB_selector.value + "/" + UTC_selector.value + "." + antennas_selector.value + ".cand"
+
+def update_SB():
+    UTCs = [os.path.basename(UTC) for UTC in glob.glob(TOP_DIR+SB_selector.value+"/20*")]
+    print "found", len(UTCs), "UTCs"
+    UTC_selector.options=sorted(UTCs)
+
+    antennas = [os.path.basename(cf) for cf in glob.glob(TOP_DIR+SB_selector.value+"/" + UTC_selector.value + "/ak*")]
+    antennas_selector.options = sorted(antennas)
+
+def update_UTC():
+    antennas = [os.path.basename(cf) for cf in glob.glob(TOP_DIR+SB_selector.value+"/" + UTC_selector.value + "/ak*")]
+    antennas_selector.options = sorted(antennas)
+    print "update_UTC", CAND_TOP_DIR+SB_selector.value+"/" + UTC_selector.value
+
+cands = pd.DataFrame()
+def update_cand_file():
+    cand_file = CAND_TOP_DIR + SB_selector.value + "/" + UTC_selector.value + "." + antennas_selector.value + ".cand"
+    print "loading cands", cand_file
+    _cands = pd.read_csv(cand_file, header=0, delim_whitespace=True)
+    for column in _cands.columns.values:
+        cands[column] = _cands[column]
+    print "loaded cands", _cands["beam"].count(), cands["beam"].count()
+    update()
 
 axis_map = {
     "S/N": "#snr",
@@ -51,7 +77,7 @@ cand_y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Tim
 
 # Create Column Data Source that will be used by the plot
 source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
-    color=[]))#, alpha=[]))
+    sample=[], beam=[], color=[]))#, alpha=[]))
 
 source_ts = ColumnDataSource(data=dict(time=[], series=[]))
 source_fb = ColumnDataSource(data=dict(image=[]))
@@ -59,17 +85,24 @@ source_fb_conv = ColumnDataSource(data=dict(image=[]))
 
 TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
 
-cands_fig = figure(plot_height=600, plot_width=700, title="", tools = TOOLS )#, tools=[hover])
+cands_fig = figure(plot_height=600, plot_width=700, title="", tools = TOOLS,
+        toolbar_location='right')
 cands_plot = cands_fig.circle(x="x", y="y", source=source, size=7, color="color", line_color=None)#, fill_alpha="alpha")
 
-timeseries_fig = figure(plot_height=600, plot_width=700, title="Time Series", tools = TOOLS )
+timeseries_fig = figure(plot_height=300, plot_width=1400, title="Time Series",
+        tools = 'box_zoom, reset', toolbar_location='right')
 timeseries_plot = timeseries_fig.line(x="time", y="series", source=source_ts, line_width=2)
 
-dedisp_fig = figure(plot_height=600, plot_width=700, title="Dedispersed data", tools ='box_zoom, reset', x_range=(0, 10), y_range=(0, 10) )
+dedisp_fig = figure(plot_height=600, plot_width=700, title="Dedispersed data",
+        tools ='box_zoom, reset', x_range=(0, 10), y_range=(0, 10),
+        toolbar_location='right' )
 dedisp_plot = dedisp_fig.image(image="image", x=0, y=0, dw=10, dh=10, source=source_fb, palette = 'Viridis256' )
 
-conv_fig = figure(plot_height=600, plot_width=700, title="Convolved data", tools ='box_zoom, reset', x_range=(0, 10), y_range=(0, 10) )
-conv_plot = conv_fig.image(image="image", x=0, y=0, dw=10, dh=10, source=source_fb_conv, palette = 'Viridis256' )
+conv_fig = figure(plot_height=600, plot_width=700, title="Convolved data",
+        tools ='box_zoom, reset', x_range=(0, 10), y_range=(0, 10),
+        toolbar_location='right')
+conv_plot = conv_fig.image(image="image", x=0, y=0, dw=10, dh=10,
+        source=source_fb_conv, palette = 'Viridis256')
 
 def select_cands():
     cands["color"] = pd.Series("red", cands.index)
@@ -91,21 +124,29 @@ def update():
         snr=df["#snr"],
         filter_width=df["filter"],
         color=df["color"],
+        sample=df["sample"],
+        beam=df["beam"],
     )
         #alpha=df["alpha"],
 
 def tap_callback(attr, old, new):
     if len(new['1d']['indices']) > 0:
-        print "Selected candidate with index", new['1d']['indices'][0]
-        _, _dedisp_block, _conv_block, time, series = get_fbank_data(478.399, 50686, 2**3)
-        source_ts.data["time"] = time
-        source_ts.data["series"] = series
+        cand_id = new['1d']['indices'][0]
+        dm = source.data["DM"][cand_id]
+        sample = source.data["sample"][cand_id]
+        filter_ind = source.data["filter_width"][cand_id]
+        beam = source.data["beam"][cand_id]
+        _, _dedisp_block, _conv_block, _time, _series = get_fbank_data(dm,
+                sample, 2**filter_ind, beam)
+        source_ts.data["time"] = _time
+        source_ts.data["series"] = _series
         source_fb.data["image"] = [_dedisp_block]
         source_fb_conv.data["image"] = [_conv_block]
 
-def get_fbank_data(dm, sample, width):
+def get_fbank_data(dm, sample, width, beam):
     # based on Wael's filplot
-    fil_fn = TOP_DIR + "2017-04-24-19:45:44_0000000000000000.000000.21.fil"
+    fil_fn = glob.glob(TOP_DIR+"/" + SB_selector.value+"/" + UTC_selector.value
+            + "/" + antennas_selector.value + "/C000/*."+ "%02d" % beam +".fil")[0]
     fil = FilReader(fil_fn)
 
     tsamp = fil.header.tsamp
@@ -138,20 +179,25 @@ def get_fbank_data(dm, sample, width):
     time  = np.arange(event_end)*tsamp_ms
     series = disp_block.sum(axis=0)[:event_end]
 
-    return block, disp_block, conv_arr, time, series
+    return block, disp_block[:,:event_end], conv_arr, time, series
 
 cands_plot.data_source.on_change('selected', tap_callback)
 
-update()  # initial load of the data
+top_level_controls = [ SB_selector, UTC_selector, antennas_selector]
+SB_selector.on_change('value', lambda attr, old, new: update_SB())
+UTC_selector.on_change('value', lambda attr, old, new: update_UTC())
+antennas_selector.on_change('value', lambda attr, old, new: update_cand_file())
 
-controls = [cand_x_axis, cand_y_axis]
-for control in controls:
+cand_controls = [cand_x_axis, cand_y_axis]
+for control in cand_controls:
     control.on_change('value', lambda attr, old, new: update())
 
-sizing_mode='fixed'
-inputs = widgetbox(*controls, sizing_mode=sizing_mode)
+sizing_mode = 'fixed'
+top_level_inputs = widgetbox(*top_level_controls, sizing_mode=sizing_mode)
+cand_control_inputs = widgetbox(*cand_controls, sizing_mode=sizing_mode)
 
 desc = Div()
-l = layout([[desc], [inputs], [cands_fig, timeseries_fig], [dedisp_fig, conv_fig]])
+l = layout([[desc], [top_level_inputs], [cands_fig, cand_control_inputs],
+    [timeseries_fig], [dedisp_fig, conv_fig]])
 curdoc().add_root(l)
 curdoc().title = "Candidates"
