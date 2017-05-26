@@ -162,7 +162,12 @@ def get_fbank_data(dm, sample, width, beam):
     t_extract = 2*backstep + 2*width + t_smear
 
     if (sample-backstep+t_extract) > fil.header.nsamples:
-            raise RuntimeError("Filterbank out-of-bound", "End window is out of bounds")
+            #raise RuntimeError("Filterbank out-of-bound", "End window is out of bounds")
+            print "Filterbank out-of-bound.", "End window is out of bounds", backstep, event_end
+            backstep = int((fil.header.nsamples - sample)/tsamp_ms)
+            event_end = int(backstep*2 + width)
+            print "Adjusted backstep to", backstep, event_end
+
     # original filterbank
     block = fil.readBlock(sample-backstep, t_extract)
     # dedisperse d filterbank:
