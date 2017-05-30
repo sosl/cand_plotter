@@ -55,8 +55,9 @@ cands = pd.DataFrame()
 def update_cand_file():
     cand_file = CAND_TOP_DIR + SB_selector.value + "/" + UTC_selector.value + "." + antennas_selector.value + ".cand"
     print "loading cands", cand_file
-    _cands = pd.read_csv(cand_file, header=None, comment='#', delim_whitespace=True, names=['snr', 'sample', 'time', 'logwidth',
-        'dm_trial', 'DM', 'members', 'begin', 'end', 'beam', 'antenna'])
+    _cands = pd.read_csv(cand_file, header=None, comment='#',
+            delim_whitespace=True,
+            names=config.get('cand', 'format').split(',') )
     _cands["color"] = pd.Series("blue", _cands.index)
     # set the range of threshold sliders:
     cand_min_snr.start=_cands["snr"].min()
