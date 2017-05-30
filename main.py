@@ -15,8 +15,6 @@ filter_palette = Spectral8
 
 # for fbank handling
 import numpy as np
-import sys
-sys.path.append("/Users/stefanoslowski/work/CRAFT/cand_plotter/wfarah/mbplotlib")
 import mbplotlib
 from sigpyproc.Readers import FilReader
 CAND_PLOT_CFG = os.environ['HOME']+"/.candplotter.cfg"
