@@ -75,8 +75,10 @@ axis_map = {
     "Antenna": "antenna",
 }
 
-cand_x_axis = Select(title="X Axis", options=sorted(axis_map.keys()), value="DM")
-cand_y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()), value="Time (s)")
+cand_x_axis = Select(title="X Axis", options=sorted(axis_map.keys()),
+        value="Time (s)")
+cand_y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()),
+        value="DM")
 
 # Create Column Data Source that will be used by the plot
 source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
@@ -90,8 +92,10 @@ TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
 
 cands_fig = figure(plot_height=600, plot_width=700, title="", tools = TOOLS,
         toolbar_location='right')
-cands_plot = cands_fig.circle(x="x", y="y", source=source, size=7,
+cands_plot = cands_fig.circle(x="x", y="y", source=source, size=15,
         color="color", line_color=None, fill_alpha="alpha")
+cands_fig.text(x="x", y="y", text="beam", source=source, text_font_size='8pt',
+        x_offset=-5, y_offset=5)
 
 timeseries_fig = figure(plot_height=300, plot_width=1400, title="Time Series",
         tools = 'box_zoom, reset', toolbar_location='right')
@@ -120,7 +124,6 @@ def update():
     cands_fig.xaxis.axis_label = cand_x_axis.value
     cands_fig.yaxis.axis_label = cand_y_axis.value
     cands_fig.title.text = "%d candidates present" % len(df)
-    print "yooo"
     source.data = dict(
         x=df[x_name],
         y=df[y_name],
