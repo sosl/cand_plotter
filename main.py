@@ -6,7 +6,7 @@ import pandas as pd
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, Div
 from bokeh.io import curdoc
-from bokeh.models.widgets import Select
+from bokeh.models.widgets import Select, Slider
 from bokeh.layouts import layout, widgetbox
 #choose palette for filter to color mapping. If more than 8 filter widths allowed, different palette will be needed
 from bokeh.palettes import Spectral8
@@ -15,6 +15,8 @@ filter_palette = Spectral8
 
 # for fbank handling
 import numpy as np
+import sys
+sys.path.append("/Users/stefanoslowski/work/CRAFT/cand_plotter/wfarah/mbplotlib")
 import mbplotlib
 from sigpyproc.Readers import FilReader
 CAND_PLOT_CFG = os.environ['HOME']+"/.candplotter.cfg"
@@ -32,7 +34,6 @@ SB_selector = Select(title="Scheduling block", options=sorted(SB_ids))#, value=S
 
 UTCs = [os.path.basename(UTC) for UTC in glob.glob(TOP_DIR+SB_selector.value+"/20*")]
 UTC_selector = Select(title="UTC", options=sorted(UTCs))#, value=UTCs[0])
-
 
 antennas = [os.path.basename(cf) for cf in glob.glob(TOP_DIR+SB_selector.value+"/" + UTC_selector.value + "/ak*")]
 antennas_selector = Select(title="Antenna file", options = sorted(antennas))#, value= antennas[0])
@@ -56,18 +57,31 @@ cands = pd.DataFrame()
 def update_cand_file():
     cand_file = CAND_TOP_DIR + SB_selector.value + "/" + UTC_selector.value + "." + antennas_selector.value + ".cand"
     print "loading cands", cand_file
-    _cands = pd.read_csv(cand_file, header=0, delim_whitespace=True)
+    _cands = pd.read_csv(cand_file, header=None, comment='#', delim_whitespace=True, names=['snr', 'sample', 'time', 'logwidth',
+        'dm_trial', 'DM', 'members', 'begin', 'end', 'beam', 'antenna'])
+    _cands["color"] = pd.Series("blue", _cands.index)
+    # set the range of threshold sliders:
+    cand_min_snr.start=_cands["snr"].min()
+    cand_min_snr.end=_cands["snr"].max()
+    cand_min_width.start=_cands["logwidth"].min()
+    cand_min_width.end=_cands["logwidth"].max()
+    cand_max_width.start=_cands["logwidth"].min()
+    cand_max_width.end=_cands["logwidth"].max()
+    cand_min_DM.start=_cands["DM"].min()
+    cand_min_DM.end=_cands["DM"].max()
+    cand_max_DM.start=_cands["DM"].min()
+    cand_max_DM.end=_cands["DM"].max()
     for column in _cands.columns.values:
         cands[column] = _cands[column]
     update()
 
 axis_map = {
-    "S/N": "#snr",
+    "S/N": "snr",
     "Sample No.": "sample",
     "Time (s)": "time",
-    "log2(Boxcar width)": "filter",
+    "log2(Boxcar width)": "logwidth",
     "DM trial": "dm_trial",
-    "DM": "dm",
+    "DM": "DM",
     "Member count": "members",
     "Begin (?)": "begin",
     "End (?)": "end",
@@ -79,6 +93,12 @@ cand_x_axis = Select(title="X Axis", options=sorted(axis_map.keys()),
         value="Time (s)")
 cand_y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()),
         value="DM")
+
+cand_min_snr = Slider(title="Min S/N", value = 6.0, start=6.0, end=15.0, step=0.5)
+cand_min_width = Slider(title="Min log2(width)", value = 0, start=0, end=8, step=1)
+cand_max_width = Slider(title="Max log2(width)", value = 8, start=0, end=8, step=1)
+cand_min_DM = Slider(title="Min DM", value = 0., start=0., end=4116., step=1)
+cand_max_DM = Slider(title="Max DM", value = 4116., start=0., end=4116., step=1)
 
 # Create Column Data Source that will be used by the plot
 source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
@@ -113,8 +133,15 @@ conv_plot = conv_fig.image(image="image", x=0, y=0, dw=10, dh=10,
         source=source_fb_conv, palette = 'Viridis256')
 
 def select_cands():
-    cands["color"] = pd.Series("blue", cands.index)
-    return cands
+    selected = cands[
+            (cands.snr >= cand_min_snr.value) &
+            (cands.logwidth >= cand_min_width.value) &
+            (cands.logwidth <= cand_max_width.value) &
+            (cands.DM >= cand_min_DM.value) &
+            (cands.DM <= cand_max_DM.value)
+    ]
+    print "selected", len(selected)
+    return selected
 
 def update():
     df = select_cands()
@@ -127,24 +154,26 @@ def update():
     source.data = dict(
         x=df[x_name],
         y=df[y_name],
-        DM=df["dm"],
-        snr=df["#snr"],
-        filter_width=df["filter"],
+        DM=df["DM"],
+        snr=df["snr"],
+        filter_width=df["logwidth"],
         sample=df["sample"],
         beam=df["beam"],
         # set color based on width:
-        color=[filter_palette[width] for width in df["filter"]],
+        color=[filter_palette[width] for width in df["logwidth"]],
         # set alpha: 0.33 for S/N of 6, 1.0 for 10+
-        alpha=[(snr-4.)/6. if snr <=10. else 1.0 for snr in df["#snr"]],
+        alpha=[(snr-4.)/6. if snr <=10. else 1.0 for snr in df["snr"]],
     )
 
 def tap_callback(attr, old, new):
     if len(new['1d']['indices']) > 0:
         cand_id = new['1d']['indices'][0]
-        dm = source.data["DM"][cand_id]
-        sample = source.data["sample"][cand_id]
-        filter_ind = source.data["filter_width"][cand_id]
-        beam = source.data["beam"][cand_id]
+        _cands = select_cands()
+        selected_cand = _cands.iloc[cand_id]
+        dm = selected_cand["DM"]
+        sample = selected_cand["sample"]
+        filter_ind = selected_cand["logwidth"]
+        beam = selected_cand["beam"]
         _, _dedisp_block, _conv_block, _time, _series = get_fbank_data(dm,
                 sample, 2**filter_ind, beam)
         source_ts.data["time"] = _time
@@ -202,7 +231,8 @@ SB_selector.on_change('value', lambda attr, old, new: update_SB())
 UTC_selector.on_change('value', lambda attr, old, new: update_UTC())
 antennas_selector.on_change('value', lambda attr, old, new: update_cand_file())
 
-cand_controls = [cand_x_axis, cand_y_axis]
+cand_controls = [cand_x_axis, cand_y_axis, cand_min_snr, cand_min_width,
+        cand_max_width, cand_min_DM, cand_max_DM]
 for control in cand_controls:
     control.on_change('value', lambda attr, old, new: update())
 
