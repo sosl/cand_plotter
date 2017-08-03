@@ -27,33 +27,81 @@ if not config.sections():
 TOP_DIR = config.get('data', 'topdir')
 CAND_TOP_DIR = config.get('cand', 'topdir')
 
-SB_ids = [os.path.basename(SB) for SB in glob.glob(TOP_DIR+"/SB*")]
-SB_selector = Select(title="Scheduling block", options=sorted(SB_ids))#, value=SB_ids[0])
+obs_moniker = config.get('cand_structure', 'observation_moniker')
+obs_pattern = config.get('cand_structure', 'observation_pattern')
 
-UTCs = [os.path.basename(UTC) for UTC in glob.glob(TOP_DIR+SB_selector.value+"/20*")]
-UTC_selector = Select(title="UTC", options=sorted(UTCs))#, value=UTCs[0])
+candidate_prefix = config.get('cand_structure', 'candidate_prefix')
+candidate_postfix = config.get('cand_structure', 'candidate_postfix')
+obs_pattern = config.get('cand_structure', 'observation_pattern')
 
-antennas = [os.path.basename(cf) for cf in glob.glob(TOP_DIR+SB_selector.value+"/" + UTC_selector.value + "/ak*")]
-antennas_selector = Select(title="Antenna file", options = sorted(antennas))#, value= antennas[0])
+obs_ids = []
+cand_files = glob.glob(CAND_TOP_DIR + "/" + obs_pattern + "/" + candidate_prefix + '*' + candidate_postfix)
+print "Found",len(cand_files),"candidates"
+print "tried",CAND_TOP_DIR + "/" + obs_pattern + "/" + candidate_prefix + '*' + candidate_postfix
+for cand_file_p in cand_files:
+  cand_info = cand_file_p.split("/")
+  obs_ids.append(cand_info[4])
 
-cand_file = CAND_TOP_DIR + SB_selector.value + "/" + UTC_selector.value + "." + antennas_selector.value + ".cand"
 
-def update_SB():
-    UTCs = [os.path.basename(UTC) for UTC in glob.glob(TOP_DIR+SB_selector.value+"/20*")]
-    print "found", len(UTCs), "UTCs"
-    UTC_selector.options=sorted(UTCs)
+print TOP_DIR+"/"+obs_pattern
+#obs_ids = [os.path.basename(obs) for obs in glob.glob(TOP_DIR+"/"+obs_pattern)]
+obs_selector = Select(title=obs_moniker, options=[obs_moniker] + sorted(obs_ids, reverse=True))
 
-    antennas = [os.path.basename(cf) for cf in glob.glob(TOP_DIR+SB_selector.value+"/" + UTC_selector.value + "/ak*")]
-    antennas_selector.options = sorted(antennas)
+subobs_selector = Select()
+subobservations_present = config.getboolean('cand_structure', 'subobservations')
+subobs_moniker = config.get('cand_structure', 'subobservation_moniker')
+subobs_pattern = config.get('cand_structure', 'subobservation_pattern')
+if subobservations_present:
+  subobs = [os.path.basename(subobs) for subobs in glob.glob(TOP_DIR + \
+      "/" + obs_selector.value+"/" + subobs_pattern)]
+  subobs_selector.title = subobs_moniker
+  subobs_selector.options = sorted(subobs)
 
-def update_UTC():
-    antennas = [os.path.basename(cf) for cf in glob.glob(TOP_DIR+SB_selector.value+"/" + UTC_selector.value + "/ak*")]
-    antennas_selector.options = sorted(antennas)
-    print "update_UTC", CAND_TOP_DIR+SB_selector.value+"/" + UTC_selector.value
+subsubobs_selector = Select()
+subsubobservations_present = config.getboolean('cand_structure', 'subsubobservations')
+subsubobs_moniker = config.get('cand_structure', 'subsubobservation_moniker')
+subsubobs_pattern = config.get('cand_structure', 'subsubobservation_pattern')
+
+if subsubobservations_present:
+  subsubobs =[os.path.basename(subsubobs) for subsubobs in glob.glob(TOP_DIR +\
+    obs_selector.value+"/" + subobs_selector.value + "/" +subsubobs_pattern)]
+  subsubobs_selector.title = subsubobs_moniker
+  subsubobs_selector.options = sorted(subsubobs)
+
+def update_obs():
+  if subobservations_present:
+    subobs = [os.path.basename(subob) for subob in glob.glob(TOP_DIR+obs_selector.value+"/"+subobs_pattern)]
+    subobs_selector.options=sorted(subobs)
+    if subsubobservations_present:
+      subsubobs = [os.path.basename(subsubob) for subsubob in
+        glob.glob(TOP_DIR+obs_selector.value+"/" + subobs_selector.value + "/" + subsubobs_pattern)]
+      subsubobs_selector.options = sorted(subsubobs)
+  else:
+    update_cand_file()
+
+def update_subobs():
+  antennas = [os.path.basename(cf) for cf in glob.glob(TOP_DIR+obs_selector.value+"/" + subobs_selector.value + "/" + subsubobs_pattern)]
+  subsubobs_selector.options = sorted(antennas)
 
 cands = pd.DataFrame()
+
+candidate_prefix = config.get('cand_structure', 'candidate_prefix')
+candidate_postfix = config.get('cand_structure', 'candidate_postfix')
 def update_cand_file():
-    cand_file = CAND_TOP_DIR + SB_selector.value + "/" + UTC_selector.value + "." + antennas_selector.value + ".cand"
+    cand_file = CAND_TOP_DIR + obs_selector.value + "/" # + subobs_selector.value + "." + subsubobs_selector.value + candidate_postfix
+  if subobservations_present:
+    cand_file += subobs_selector.value + "/"
+    if subsubobservations_present:
+      cand_file += subsubobs_selector.value + "/"
+  cand_file += candidate_prefix + "*" + candidate_postfix
+  #print cand_file
+  cand_files = glob.glob(cand_file)#[0]
+  if len(cand_files)  < 1 :
+    print "Candidate file doesn't exit"
+    print "tried:", cand_file
+    return -1
+  cand_file = cand_files[0]
+  print cand_file
     print "loading cands", cand_file
     _cands = pd.read_csv(cand_file, header=None, comment='#',
             delim_whitespace=True,
@@ -76,6 +124,10 @@ def update_cand_file():
 
 axis_map = {
     "S/N": "snr",
+  "Beam No.": "beam",
+  "Max S/N": "max_snr",
+  "Primary Beam No.": "primary_beam",
+  "No. of beams": "nbeams",
     "Sample No.": "sample",
     "Time (s)": "time",
     "log2(Boxcar width)": "logwidth",
@@ -84,9 +136,10 @@ axis_map = {
     "Member count": "members",
     "Begin (?)": "begin",
     "End (?)": "end",
-    "Beam No.": "beam",
     "Antenna": "antenna",
 }
+
+inverse_axis_map = {v: k for k, v in axis_map.iteritems()}
 
 cand_x_axis = Select(title="X Axis", options=sorted(axis_map.keys()),
         value="Time (s)")
@@ -98,6 +151,8 @@ cand_min_width = Slider(title="Min log2(width)", value = 0, start=0, end=8, step
 cand_max_width = Slider(title="Max log2(width)", value = 8, start=0, end=8, step=1)
 cand_min_DM = Slider(title="Min DM", value = 0., start=0., end=4116., step=1)
 cand_max_DM = Slider(title="Max DM", value = 4116., start=0., end=4116., step=1)
+cand_min_beam = Slider(title="Min beam no.", value = 0, start=0., end=352, step=1)
+cand_max_beam = Slider(title="Max beam no.", value = 352, start=0., end=352, step=1)
 
 # Create Column Data Source that will be used by the plot
 source = ColumnDataSource(data=dict(x=[], y=[], DM=[], snr=[], filter_width=[],
@@ -137,7 +192,9 @@ def select_cands():
             (cands.logwidth >= cand_min_width.value) &
             (cands.logwidth <= cand_max_width.value) &
             (cands.DM >= cand_min_DM.value) &
-            (cands.DM <= cand_max_DM.value)
+            (cands.DM <= cand_max_DM.value) & 
+            (cands.beam >= cand_min_beam.value) &
+            (cands.beam <= cand_max_beam.value) 
     ]
     print "selected", len(selected)
     return selected
@@ -155,11 +212,13 @@ def update():
         y=df[y_name],
         DM=df["DM"],
         snr=df["snr"],
+        max_snr=df["max_snr"],
         filter_width=df["logwidth"],
         sample=df["sample"],
         beam=df["beam"],
+        time=df["time"],
         # set color based on width:
-        color=[filter_palette[width] for width in df["logwidth"]],
+        color=[filter_palette[int(width)] for width in df["logwidth"]],
         # set alpha: 0.33 for S/N of 6, 1.0 for 10+
         alpha=[(snr-4.)/6. if snr <=10. else 1.0 for snr in df["snr"]],
     )
@@ -168,13 +227,16 @@ def tap_callback(attr, old, new):
     if len(new['1d']['indices']) > 0:
         cand_id = new['1d']['indices'][0]
         _cands = select_cands()
-        selected_cand = _cands.iloc[cand_id]
-        dm = selected_cand["DM"]
-        sample = selected_cand["sample"]
-        filter_ind = selected_cand["logwidth"]
-        beam = selected_cand["beam"]
-        _, _dedisp_block, _conv_block, _time, _series = get_fbank_data(dm,
-                sample, 2**filter_ind, beam)
+        selected_cand = _cands.iloc[[cand_id]]
+        dm = selected_cand["DM"].tolist()[0]
+        sample = selected_cand["sample"].tolist()[0]
+        time = selected_cand["time"].tolist()[0]
+        filter_ind = selected_cand["logwidth"].tolist()[0]
+        beam = selected_cand["beam"].tolist()[0]
+        snr = selected_cand["snr"].tolist()[0]
+        max_snr = selected_cand["max_snr"].tolist()[0]
+        _, _dedisp_block, _conv_block, _time, _series = get_fbank_data_time(dm,
+                time, 2**filter_ind, beam)
         source_ts.data["time"] = _time
         source_ts.data["series"] = _series
         source_fb.data["image"] = [_dedisp_block]
@@ -182,28 +244,83 @@ def tap_callback(attr, old, new):
 
 def get_fbank_data(dm, sample, width, beam):
     # based on Wael's filplot
-    fil_fn = glob.glob(TOP_DIR+"/" + SB_selector.value+"/" + UTC_selector.value
-            + "/" + antennas_selector.value + "/C000/*."+ "%02d" % beam +".fil")[0]
-    fil = FilReader(fil_fn)
+    fil_pattern = (TOP_DIR+"/" + obs_selector.value+"/" + subobs_selector.value
+      + "/" + subsubobs_selector.value + filterbank_prefix + "%03d/" % beam +"2*.fil")
+    fil_fn = glob.glob(fil_pattern)
+    if len(fil_fn) > 0:
+      print fil_fn
+      fil = FilReader(fil_fn[0])
+
+      tsamp = fil.header.tsamp
+      tsamp_ms = fil.header.tsamp*1000.
+      backstep = int(200/tsamp_ms)
+      event_end = int(backstep*2 + width)
+
+      bw = fil.header.bandwidth
+
+      t_smear = np.ceil(((fil.header.bandwidth*8.3*dm)
+              / (fil.header.fcenter*10**(-3))**3)/(tsamp*1000000))
+      t_smear = int(1.05*t_smear)
+      t_extract = 2*backstep + 2*width + t_smear
+
+      if (sample-backstep+t_extract) > fil.header.nsamples:
+              #raise RuntimeError("Filterbank out-of-bound", "End window is out of bounds")
+              print "Filterbank out-of-bound.", "End window is out of bounds", backstep, event_end
+              backstep = int((fil.header.nsamples - sample)/tsamp_ms)
+              event_end = int(backstep*2 + width)
+              print "Adjusted backstep to", backstep, event_end
+
+      # original filterbank
+      block = fil.readBlock(sample-backstep, t_extract)
+      # dedisperse d filterbank:
+      disp_block = block.dedisperse(dm)
+
+      # dedispersed filterbank convolved at the expected width
+      conv_arr = np.zeros((block.shape[0],event_end))
+
+      for i in xrange(conv_arr.shape[0]):
+              conv_arr[i] = mbplotlib.wrapper_conv_boxcar(np.array(disp_block[i,:event_end],
+                  dtype=np.ctypeslib.ct.c_long),width)
+      conv_arr = conv_arr[:,:(-width-1)]
+
+      time  = np.arange(event_end)*tsamp_ms
+      series = disp_block.sum(axis=0)[:event_end]
+
+      return block, disp_block[:,:event_end], conv_arr, time, series
+    else:
+      print "No filterbank found"
+      print fil_pattern
+
+def get_fbank_data_time(dm, _time, width, beam):
+  print "get_fbank_data_time: running"
+  # based on Wael's filplot
+  fil_pattern = (TOP_DIR+"/" + obs_selector.value+"/" + subobs_selector.value
+      + "/" + subsubobs_selector.value + filterbank_prefix + "%03d/" % beam +"2*.fil")
+  fil_fn = glob.glob(fil_pattern)
+  if len(fil_fn) > 0:
+    print fil_fn[0]
+    fil = FilReader(fil_fn[0])
 
     tsamp = fil.header.tsamp
     tsamp_ms = fil.header.tsamp*1000.
+
+    sample = int(_time / tsamp)
     backstep = int(200/tsamp_ms)
     event_end = int(backstep*2 + width)
 
     bw = fil.header.bandwidth
 
     t_smear = np.ceil(((fil.header.bandwidth*8.3*dm)
-            / (fil.header.fcenter*10**(-3))**3)/(tsamp*1000000))
+        / (fil.header.fcenter*10**(-3))**3)/(tsamp*1000000))
     t_smear = int(1.05*t_smear)
     t_extract = 2*backstep + 2*width + t_smear
 
     if (sample-backstep+t_extract) > fil.header.nsamples:
-            #raise RuntimeError("Filterbank out-of-bound", "End window is out of bounds")
-            print "Filterbank out-of-bound.", "End window is out of bounds", backstep, event_end
-            backstep = int((fil.header.nsamples - sample)/tsamp_ms)
-            event_end = int(backstep*2 + width)
-            print "Adjusted backstep to", backstep, event_end
+        #raise RuntimeError("Filterbank out-of-bound", "End window is out of bounds")
+        print "Filterbank out-of-bound.", "End window is out of bounds", backstep, event_end
+        backstep = int((fil.header.nsamples - sample)/tsamp_ms)
+        event_end = int(backstep*2 + width)
+        print "Adjusted backstep to", backstep, event_end
 
     # original filterbank
     block = fil.readBlock(sample-backstep, t_extract)
@@ -214,24 +331,33 @@ def get_fbank_data(dm, sample, width, beam):
     conv_arr = np.zeros((block.shape[0],event_end))
 
     for i in xrange(conv_arr.shape[0]):
-            conv_arr[i] = mbplotlib.wrapper_conv_boxcar(np.array(disp_block[i,:event_end],
-                dtype=np.ctypeslib.ct.c_long),width)
+        conv_arr[i] = mbplotlib.wrapper_conv_boxcar(np.array(disp_block[i,:event_end],
+          dtype=np.ctypeslib.ct.c_long),width)
     conv_arr = conv_arr[:,:(-width-1)]
 
     time  = np.arange(event_end)*tsamp_ms
     series = disp_block.sum(axis=0)[:event_end]
 
     return block, disp_block[:,:event_end], conv_arr, time, series
+  else:
+    print "No filterbank found"
+    print fil_pattern
 
 cands_plot.data_source.on_change('selected', tap_callback)
 
-top_level_controls = [ SB_selector, UTC_selector, antennas_selector]
-SB_selector.on_change('value', lambda attr, old, new: update_SB())
-UTC_selector.on_change('value', lambda attr, old, new: update_UTC())
-antennas_selector.on_change('value', lambda attr, old, new: update_cand_file())
+top_level_controls = [ obs_selector]
+if subobservations_present:
+  top_level_controls.append(subobs_selector)
+  if subsubobservations_present:
+    top_level_control.append(subsubobs_selector)
+obs_selector.on_change('value', lambda attr, old, new: update_obs())
+if subobservations_present:
+  subobs_selector.on_change('value', lambda attr, old, new: update_subobs())
+  if subsubobservations_present:
+    subsubobs_selector.on_change('value', lambda attr, old, new: update_cand_file())
 
 cand_controls = [cand_x_axis, cand_y_axis, cand_min_snr, cand_min_width,
-        cand_max_width, cand_min_DM, cand_max_DM]
+        cand_max_width, cand_min_DM, cand_max_DM, cand_min_beam, cand_max_beam]
 for control in cand_controls:
     control.on_change('value', lambda attr, old, new: update())
 
