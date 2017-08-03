@@ -9,9 +9,9 @@ from bokeh.io import curdoc
 from bokeh.models.widgets import Select, Slider
 from bokeh.layouts import layout, widgetbox
 #choose palette for filter to color mapping. If more than 8 filter widths allowed, different palette will be needed
-from bokeh.palettes import Spectral8
+from bokeh.palettes import Spectral10
 
-filter_palette = Spectral8
+filter_palette = Spectral10
 
 # for fbank handling
 import numpy as np
