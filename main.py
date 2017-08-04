@@ -142,14 +142,14 @@ axis_map = {
 inverse_axis_map = {v: k for k, v in axis_map.iteritems()}
 
 cand_x_axis = Select(title="X Axis", options=sorted(axis_map.keys()),
-        value="Time (s)")
+        value="Beam No.")
 cand_y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()),
-        value="DM")
+        value="Time (s)")
 
-cand_min_snr = Slider(title="Min S/N", value = 6.0, start=6.0, end=15.0, step=0.5)
-cand_min_width = Slider(title="Min log2(width)", value = 0, start=0, end=8, step=1)
-cand_max_width = Slider(title="Max log2(width)", value = 8, start=0, end=8, step=1)
-cand_min_DM = Slider(title="Min DM", value = 0., start=0., end=4116., step=1)
+cand_min_snr = Slider(title="Min S/N", value = 7.0, start=6.0, end=15.0, step=0.5)
+cand_min_width = Slider(title="Min log2(width)", value = 0, start=0, end=10, step=1)
+cand_max_width = Slider(title="Max log2(width)", value = 9, start=0, end=10, step=1)
+cand_min_DM = Slider(title="Min DM", value = 20., start=0., end=4116., step=1)
 cand_max_DM = Slider(title="Max DM", value = 4116., start=0., end=4116., step=1)
 cand_min_beam = Slider(title="Min beam no.", value = 0, start=0., end=352, step=1)
 cand_max_beam = Slider(title="Max beam no.", value = 352, start=0., end=352, step=1)
