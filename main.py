@@ -176,8 +176,7 @@ columns = [
 candidate_table = DataTable(source=source_for_table, columns=columns, width=800)
 table = widgetbox(candidate_table)
 
-TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
-TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
+TOOLS = 'crosshair, box_zoom, reset, box_select, tap, hover'
 
 cands_fig = figure(plot_height=600, plot_width=700, title="", tools = TOOLS,
         toolbar_location='right')
@@ -185,6 +184,9 @@ cands_plot = cands_fig.circle(x="x", y="y", source=source, size=15,
         color="color", line_color=None, fill_alpha="alpha")
 cands_fig.text(x="x", y="y", text="beam", source=source, text_font_size='8pt',
         x_offset=-5, y_offset=5)
+
+hover = cands_fig.select(dict(type=HoverTool))
+hover.tooltips = [("S/N", "@snr"), ("DM", "@DM"), ("time", "@time"), ("sample", "@sample")]
 
 timeseries_fig = figure(plot_height=300, plot_width=1400, title="Time Series",
         tools = 'box_zoom, reset', toolbar_location='right')
