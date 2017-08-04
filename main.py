@@ -438,7 +438,7 @@ top_level_controls = [ obs_selector]
 if subobservations_present:
   top_level_controls.append(subobs_selector)
   if subsubobservations_present:
-    top_level_control.append(subsubobs_selector)
+    top_level_controls.append(subsubobs_selector)
 obs_selector.on_change('value', lambda attr, old, new: update_obs())
 if subobservations_present:
   subobs_selector.on_change('value', lambda attr, old, new: update_subobs())
