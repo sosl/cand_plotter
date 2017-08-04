@@ -178,7 +178,7 @@ table = widgetbox(candidate_table)
 TOOLS = 'crosshair, box_zoom, reset, box_select, tap, hover'
 
 cands_fig = figure(plot_height=600, plot_width=700, title="", tools = TOOLS,
-    toolbar_location='right')
+    toolbar_location='right', output_backend = "webgl", lod_threshold = 100 )
 cands_plot = cands_fig.circle(x="x", y="y", source=source, size=15,
     color="color", line_color=None, fill_alpha="alpha")
 cands_fig.text(x="x", y="y", text="beam", source=source, text_font_size='8pt',

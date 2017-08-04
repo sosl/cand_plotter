@@ -6,7 +6,7 @@ This code can be used for plotting FRB candidates. Currently it supports candida
 
 ```
 pandas
-bokeh
+bokeh 0.12.6
 sigpyproc
 mbplotlib
 ```
