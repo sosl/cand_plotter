@@ -370,3 +370,8 @@ l = layout([[desc], [top_level_inputs], [cands_fig, cand_control_inputs],
     [timeseries_fig], [dedisp_fig, conv_fig]])
 curdoc().add_root(l)
 curdoc().title = "Candidates"
+
+url_args = curdoc().session_context.request.arguments
+if "utc" in url_args.keys():
+  obs_selector.value=url_args["utc"][0]
+  update_cand_file()
