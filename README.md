@@ -22,10 +22,6 @@ bokeh serve main.py
 
 Any contributions welcome.
 
-## Versioning
-
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
-
 ## Authors
 
 * **Stefan Oslowski** - *Initial work* - [homepage](https://astronomy.swin.edu.au/~soslowski)
