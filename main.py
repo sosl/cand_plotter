@@ -162,6 +162,21 @@ source_ts = ColumnDataSource(data=dict(time=[], series=[]))
 source_fb = ColumnDataSource(data=dict(image=[]))
 source_fb_conv = ColumnDataSource(data=dict(image=[]))
 
+source_for_table = ColumnDataSource(data=dict(time=[], snr=[], max_snr=[], beam=[],
+  primary_beam=[], DM=[]))
+
+columns = [
+    TableColumn(field="time", title=inverse_axis_map["time"]),
+    TableColumn(field="snr", title = inverse_axis_map["snr"]),
+    TableColumn(field="max_snr", title = inverse_axis_map["max_snr"]),
+    TableColumn(field="beam", title = inverse_axis_map["beam"]),
+    TableColumn(field="primary_beam", title = inverse_axis_map["primary_beam"]),
+    TableColumn(field="DM", title = inverse_axis_map["DM"])
+]
+candidate_table = DataTable(source=source_for_table, columns=columns, width=800)
+table = widgetbox(candidate_table)
+
+TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
 TOOLS = 'crosshair, box_zoom, reset, box_select, tap'
 
 cands_fig = figure(plot_height=600, plot_width=700, title="", tools = TOOLS,
@@ -241,6 +256,79 @@ def tap_callback(attr, old, new):
         source_ts.data["series"] = _series
         source_fb.data["image"] = [_dedisp_block]
         source_fb_conv.data["image"] = [_conv_block]
+
+    print "getting primary beam"
+    primary_beam = selected_cand["primary_beam"].tolist()[0]
+    max_snr = selected_cand["max_snr"].tolist()[0]
+
+    print "Selected candidate:"
+    print selected_cand
+
+    print "new:"
+    print new
+
+    primary, rest = get_primary_and_rest_candidate(time, primary_beam, max_snr)
+    if snr != primary["max_snr"].tolist()[0]:
+      selected_cand = selected_cand.append(primary)
+    selected_cand = selected_cand.append(rest)
+    print type(selected_cand)
+    print "Selected candidate after app:"
+    print type(selected_cand)
+    print selected_cand
+    source_for_table.data = dict(
+      time = selected_cand["time"],
+      snr = selected_cand["snr"],
+      max_snr = selected_cand["max_snr"],
+      beam = selected_cand["beam"],
+      primary_beam = selected_cand["primary_beam"],
+      DM = selected_cand["DM"],
+      logwidth = selected_cand["logwidth"]
+    )
+
+def tap_callback_table(attr, old, new):
+  # like tap_callback but don't update the table
+  if len(new['1d']['indices']) > 0:
+    cand_id = new['1d']['indices'][0]
+    print "tap_callback_table: cand_id", cand_id
+    dm = source_for_table.data["DM"][cand_id]
+    time = source_for_table.data["time"][cand_id]
+    filter_ind = source_for_table.data["logwidth"][cand_id]
+    beam = source_for_table.data["beam"][cand_id]
+    _, _dedisp_block, _conv_block, _time, _series = get_fbank_data_time(dm,
+        time, 2**filter_ind, beam)
+    source_ts.data["time"] = _time
+    source_ts.data["series"] = _series
+    source_fb.data["image"] = [_dedisp_block]
+    source_fb_conv.data["image"] = [_conv_block]
+
+
+def get_primary_and_rest_candidate(time, primary_beam, max_snr):
+  primary = cands[
+    (cands.snr == max_snr) &
+    (cands.beam == primary_beam) &
+    (cands.primary_beam == primary_beam) &
+    (np.abs(cands.time - time) <0.1) # TODO time separation as a parameter
+  ]
+
+  rest = cands[
+    (cands.max_snr == max_snr) &
+    (cands.snr < max_snr) &
+    (cands.primary_beam == primary_beam) &
+    (np.abs(cands.time - time) < 0.1)
+  ]
+
+  #source_for_table.data = dict(
+    #time = primary["time"],
+    #snr = primary["snr"],
+    #max_snr = primary["max_snr"],
+    #beam = primary["beam"],
+    #primary_beam = primary["primary_beam"],
+    #DM = primary["DM"]
+  #)
+
+  return primary, rest
+
+filterbank_prefix = config.get('cand_structure', 'filterbank_prefix')
 
 def get_fbank_data(dm, sample, width, beam):
     # based on Wael's filplot
@@ -344,6 +432,7 @@ def get_fbank_data_time(dm, _time, width, beam):
     print fil_pattern
 
 cands_plot.data_source.on_change('selected', tap_callback)
+candidate_table.source.on_change('selected', tap_callback_table)
 
 top_level_controls = [ obs_selector]
 if subobservations_present:
@@ -367,7 +456,7 @@ cand_control_inputs = widgetbox(*cand_controls, sizing_mode=sizing_mode)
 
 desc = Div()
 l = layout([[desc], [top_level_inputs], [cands_fig, cand_control_inputs],
-    [timeseries_fig], [dedisp_fig, conv_fig]])
+    [timeseries_fig], [table], [dedisp_fig, conv_fig]])
 curdoc().add_root(l)
 curdoc().title = "Candidates"
 
