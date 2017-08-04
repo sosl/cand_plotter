@@ -4,9 +4,9 @@ import os, glob
 import pandas as pd
 
 from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, Div
+from bokeh.models import ColumnDataSource, Div, HoverTool
 from bokeh.io import curdoc
-from bokeh.models.widgets import Select, Slider
+from bokeh.models.widgets import Select, Slider, DataTable, TableColumn
 from bokeh.layouts import layout, widgetbox
 #choose palette for filter to color mapping. If more than 8 filter widths allowed, different palette will be needed
 from bokeh.palettes import Spectral10
