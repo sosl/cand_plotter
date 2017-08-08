@@ -34,66 +34,69 @@ candidate_prefix = config.get('cand_structure', 'candidate_prefix')
 candidate_postfix = config.get('cand_structure', 'candidate_postfix')
 obs_pattern = config.get('cand_structure', 'observation_pattern')
 
-obs_ids = []
+obs_ids_set = set()
 cand_files = glob.glob(CAND_TOP_DIR + "/" + obs_pattern + "/" + candidate_prefix + '*' + candidate_postfix)
 print "Found",len(cand_files),"candidates"
 print "tried",CAND_TOP_DIR + "/" + obs_pattern + "/" + candidate_prefix + '*' + candidate_postfix
 for cand_file_p in cand_files:
-  cand_info = cand_file_p.split("/")
-  obs_ids.append(cand_info[4])
+  cand_file = os.path.basename(cand_file_p)
+  cand_info = cand_file.split("_")
 
+  obs_ids_set.add(cand_info[0])
 
 print TOP_DIR+"/"+obs_pattern
-#obs_ids = [os.path.basename(obs) for obs in glob.glob(TOP_DIR+"/"+obs_pattern)]
-obs_selector = Select(title=obs_moniker, options=[obs_moniker] + sorted(obs_ids, reverse=True))
+obs_selector = Select(title=obs_moniker, options=[obs_moniker] + sorted(list(obs_ids_set), reverse=True))
 
 subobs_selector = Select()
 subobservations_present = config.getboolean('cand_structure', 'subobservations')
 subobs_moniker = config.get('cand_structure', 'subobservation_moniker')
+subobs_selector.title = subobs_moniker
+subobs_selector.options = ['Choose "' + obs_moniker + '" first']
 subobs_pattern = config.get('cand_structure', 'subobservation_pattern')
-if subobservations_present:
-  subobs = [os.path.basename(subobs) for subobs in glob.glob(TOP_DIR + \
-      "/" + obs_selector.value+"/" + subobs_pattern)]
-  subobs_selector.title = subobs_moniker
-  subobs_selector.options = sorted(subobs)
 
 subsubobs_selector = Select()
 subsubobservations_present = config.getboolean('cand_structure', 'subsubobservations')
 subsubobs_moniker = config.get('cand_structure', 'subsubobservation_moniker')
+subsubobs_selector.title = subsubobs_moniker
+subsubobs_selector.options = ['Choose "' + subobs_moniker + '" first']
 subsubobs_pattern = config.get('cand_structure', 'subsubobservation_pattern')
-
-if subsubobservations_present:
-  subsubobs =[os.path.basename(subsubobs) for subsubobs in glob.glob(TOP_DIR +\
-    obs_selector.value+"/" + subobs_selector.value + "/" +subsubobs_pattern)]
-  subsubobs_selector.title = subsubobs_moniker
-  subsubobs_selector.options = sorted(subsubobs)
 
 def update_obs():
   if subobservations_present:
-    subobs = [os.path.basename(subob) for subob in glob.glob(TOP_DIR+obs_selector.value+"/"+subobs_pattern)]
-    subobs_selector.options=sorted(subobs)
-    if subsubobservations_present:
-      subsubobs = [os.path.basename(subsubob) for subsubob in
-        glob.glob(TOP_DIR+obs_selector.value+"/" + subobs_selector.value + "/" + subsubobs_pattern)]
-      subsubobs_selector.options = sorted(subsubobs)
+    subobs_search_pattern = CAND_TOP_DIR +  "/" + obs_selector.value+"_"+subobs_pattern + candidate_postfix
+    subobs_set = {os.path.basename(subob).split("_")[1] for subob in glob.glob(subobs_search_pattern)}
+    if len(subobs_set) == 0:
+      print "Didn't find any subobs using:"
+      print subobs_search_pattern
+    subobs_selector.options= [subobs_moniker] + sorted(list(subobs_set))
+    subobs_selector.value = subobs_moniker
   else:
     update_cand_file()
 
 def update_subobs():
-  antennas = [os.path.basename(cf) for cf in glob.glob(TOP_DIR+obs_selector.value+"/" + subobs_selector.value + "/" + subsubobs_pattern)]
-  subsubobs_selector.options = sorted(antennas)
+  if subsubobservations_present:
+    subsubobs_search_pattern = CAND_TOP_DIR +  "/" + obs_selector.value+"_"+subobs_selector.value + "_" + subsubobs_pattern  + candidate_postfix
+    subsubobs_set = {os.path.basename(subsubob).split("_")[2] for subsubob in glob.glob(subsubobs_search_pattern)}
+    if len(subsubobs_set) == 0:
+      print "Didn't find any subsubobs using:"
+      print subsubobs_search_pattern
+    subsubobs_selector.options= [subsubobs_moniker] + sorted(list(subsubobs_set))
+    subsubobs_selector.value = subsubobs_moniker
+  else:
+    update_cand_file()
+
 
 cands = pd.DataFrame()
 
 candidate_prefix = config.get('cand_structure', 'candidate_prefix')
 candidate_postfix = config.get('cand_structure', 'candidate_postfix')
 def update_cand_file():
-  cand_file = CAND_TOP_DIR + obs_selector.value + "/" # + subobs_selector.value + "." + subsubobs_selector.value + candidate_postfix
+  cand_file = CAND_TOP_DIR + obs_selector.value # + subobs_selector.value + "." + subsubobs_selector.value + candidate_postfix
   if subobservations_present:
-    cand_file += subobs_selector.value + "/"
+    cand_file += "_" +subobs_selector.value
     if subsubobservations_present:
-      cand_file += subsubobs_selector.value + "/"
-  cand_file += candidate_prefix + "*" + candidate_postfix
+      cand_file += "_" + subsubobs_selector.value
+  cand_file += "_" + candidate_postfix
   #print cand_file
   cand_files = glob.glob(cand_file)#[0]
   if len(cand_files)  < 1 :
@@ -124,26 +127,24 @@ def update_cand_file():
 axis_map = {
   "S/N": "snr",
   "Beam No.": "beam",
-  "Max S/N": "max_snr",
-  "Primary Beam No.": "primary_beam",
-  "No. of beams": "nbeams",
   "Sample No.": "sample",
   "Time (s)": "time",
   "log2(Boxcar width)": "logwidth",
-  "DM trial": "dm_trial",
   "DM": "DM",
   "Member count": "members",
-  "Begin (?)": "begin",
+  "Begin (?)": "start",
   "End (?)": "end",
-  "Antenna": "antenna",
 }
 
 inverse_axis_map = {v: k for k, v in axis_map.iteritems()}
 
+default_xaxis = "DM"
+default_yaxis = "S/N"
+
 cand_x_axis = Select(title="X Axis", options=sorted(axis_map.keys()),
-    value="Beam No.")
+    value=default_xaxis)
 cand_y_axis = Select(title="Y Axis", options=sorted(axis_map.keys()),
-    value="Time (s)")
+    value=default_yaxis)
 
 cand_min_snr = Slider(title="Min S/N", value = 7.0, start=6.0, end=15.0, step=0.5)
 cand_min_width = Slider(title="Min log2(width)", value = 0, start=0, end=10, step=1)
@@ -162,14 +163,12 @@ source_fb = ColumnDataSource(data=dict(image=[]))
 source_fb_conv = ColumnDataSource(data=dict(image=[]))
 
 source_for_table = ColumnDataSource(data=dict(time=[], snr=[], max_snr=[], beam=[],
-  primary_beam=[], DM=[]))
+  DM=[]))
 
 columns = [
     TableColumn(field="time", title=inverse_axis_map["time"]),
     TableColumn(field="snr", title = inverse_axis_map["snr"]),
-    TableColumn(field="max_snr", title = inverse_axis_map["max_snr"]),
     TableColumn(field="beam", title = inverse_axis_map["beam"]),
-    TableColumn(field="primary_beam", title = inverse_axis_map["primary_beam"]),
     TableColumn(field="DM", title = inverse_axis_map["DM"])
 ]
 candidate_table = DataTable(source=source_for_table, columns=columns, width=800)
@@ -227,7 +226,6 @@ def update():
     y=df[y_name],
     DM=df["DM"],
     snr=df["snr"],
-    max_snr=df["max_snr"],
     filter_width=df["logwidth"],
     sample=df["sample"],
     beam=df["beam"],
@@ -242,48 +240,28 @@ def tap_callback(attr, old, new):
   if len(new['1d']['indices']) > 0:
     cand_id = new['1d']['indices'][0]
     _cands = select_cands()
-    selected_cand = _cands.iloc[[cand_id]]
+    selected_cand = _cands.iloc[[int(cand_id)]]
     dm = selected_cand["DM"].tolist()[0]
     sample = selected_cand["sample"].tolist()[0]
     time = selected_cand["time"].tolist()[0]
     filter_ind = selected_cand["logwidth"].tolist()[0]
     beam = selected_cand["beam"].tolist()[0]
     snr = selected_cand["snr"].tolist()[0]
-    max_snr = selected_cand["max_snr"].tolist()[0]
-    _, _dedisp_block, _conv_block, _time, _series = get_fbank_data_time(dm,
-        time, 2**filter_ind, beam)
+    _, _dedisp_block, _conv_block, _time, _series = get_fbank_data(dm,
+        sample, 2**filter_ind, beam)
     source_ts.data["time"] = _time
     source_ts.data["series"] = _series
     source_fb.data["image"] = [_dedisp_block]
     source_fb_conv.data["image"] = [_conv_block]
 
-    print "getting primary beam"
-    primary_beam = selected_cand["primary_beam"].tolist()[0]
-    max_snr = selected_cand["max_snr"].tolist()[0]
+    #print "getting primary beam"
+    #primary_beam = selected_cand["primary_beam"].tolist()[0]
 
     print "Selected candidate:"
     print selected_cand
 
     print "new:"
     print new
-
-    primary, rest = get_primary_and_rest_candidate(time, primary_beam, max_snr)
-    if snr != primary["max_snr"].tolist()[0]:
-      selected_cand = selected_cand.append(primary)
-    selected_cand = selected_cand.append(rest)
-    print type(selected_cand)
-    print "Selected candidate after app:"
-    print type(selected_cand)
-    print selected_cand
-    source_for_table.data = dict(
-      time = selected_cand["time"],
-      snr = selected_cand["snr"],
-      max_snr = selected_cand["max_snr"],
-      beam = selected_cand["beam"],
-      primary_beam = selected_cand["primary_beam"],
-      DM = selected_cand["DM"],
-      logwidth = selected_cand["logwidth"]
-    )
 
 def tap_callback_table(attr, old, new):
   # like tap_callback but don't update the table
@@ -333,7 +311,7 @@ filterbank_prefix = config.get('cand_structure', 'filterbank_prefix')
 def get_fbank_data(dm, sample, width, beam):
   # based on Wael's filplot
   fil_pattern = (TOP_DIR+"/" + obs_selector.value+"/" + subobs_selector.value
-      + "/" + subsubobs_selector.value + filterbank_prefix + "%03d/" % beam +"2*.fil")
+      + "/" + subsubobs_selector.value + filterbank_prefix + "2*%02d.fil" % beam)
   fil_fn = glob.glob(fil_pattern)
   if len(fil_fn) > 0:
     print fil_fn
@@ -367,14 +345,23 @@ def get_fbank_data(dm, sample, width, beam):
     conv_arr = np.zeros((block.shape[0],event_end))
 
     for i in xrange(conv_arr.shape[0]):
-        conv_arr[i] = mbplotlib.wrapper_conv_boxcar(np.array(disp_block[i,:event_end],
-          dtype=np.ctypeslib.ct.c_long),width)
+      if isinstance(i, float):
+        print "ERROR i is a float in get_fbank_data", i
+      if isinstance(event_end, float):
+        print "ERROR event_end is a float in get_fbank_data", event_end
+      if isinstance(width, float):
+        print "ERROR width is a float in get_fbank_data", width
+      conv_arr[i] = mbplotlib.wrapper_conv_boxcar(np.array(disp_block[i,:event_end],
+        dtype=np.ctypeslib.ct.c_long),width)
     conv_arr = conv_arr[:,:(-width-1)]
 
     time  = np.arange(event_end)*tsamp_ms
     series = disp_block.sum(axis=0)[:event_end]
 
-    return block, disp_block[:,:event_end], conv_arr, time, series
+    #series_0DM = block.sum(axis=0)[:event_end]
+    #fft_0DM = np.abs(numpy.fft.fft(series_0DM)[:len(series_0DM)/2])
+
+    return block, disp_block[:,:event_end], conv_arr, time, series#, fft_0DM
   else:
     print "No filterbank found"
     print fil_pattern
@@ -383,7 +370,7 @@ def get_fbank_data_time(dm, _time, width, beam):
   print "get_fbank_data_time: running"
   # based on Wael's filplot
   fil_pattern = (TOP_DIR+"/" + obs_selector.value+"/" + subobs_selector.value
-      + "/" + subsubobs_selector.value + filterbank_prefix + "%03d/" % beam +"2*.fil")
+      + "/" + subsubobs_selector.value + filterbank_prefix + "2*%02d.fil" % beam)
   fil_fn = glob.glob(fil_pattern)
   if len(fil_fn) > 0:
     print fil_fn[0]
@@ -404,11 +391,11 @@ def get_fbank_data_time(dm, _time, width, beam):
     t_extract = 2*backstep + 2*width + t_smear
 
     if (sample-backstep+t_extract) > fil.header.nsamples:
-        #raise RuntimeError("Filterbank out-of-bound", "End window is out of bounds")
-        print "Filterbank out-of-bound.", "End window is out of bounds", backstep, event_end
-        backstep = int((fil.header.nsamples - sample)/tsamp_ms)
-        event_end = int(backstep*2 + width)
-        print "Adjusted backstep to", backstep, event_end
+      #raise RuntimeError("Filterbank out-of-bound", "End window is out of bounds")
+      print "Filterbank out-of-bound.", "End window is out of bounds", backstep, event_end
+      backstep = int((fil.header.nsamples - sample)/tsamp_ms)
+      event_end = int(backstep*2 + width)
+      print "Adjusted backstep to", backstep, event_end
 
     # original filterbank
     block = fil.readBlock(sample-backstep, t_extract)
@@ -419,8 +406,14 @@ def get_fbank_data_time(dm, _time, width, beam):
     conv_arr = np.zeros((block.shape[0],event_end))
 
     for i in xrange(conv_arr.shape[0]):
-        conv_arr[i] = mbplotlib.wrapper_conv_boxcar(np.array(disp_block[i,:event_end],
-          dtype=np.ctypeslib.ct.c_long),width)
+      if isinstance(i, float):
+        print "ERROR i is a float in get_fbank_data_time", i
+      if isinstance(event_end, float):
+        print "ERROR event_end is a float in get_fbank_data_time", event_end
+      if isinstance(width, float):
+        print "ERROR width is a float in get_fbank_data_time", width
+      conv_arr[i] = mbplotlib.wrapper_conv_boxcar(np.array(disp_block[i,:event_end],
+        dtype=np.ctypeslib.ct.c_long),width)
     conv_arr = conv_arr[:,:(-width-1)]
 
     time  = np.arange(event_end)*tsamp_ms
@@ -456,7 +449,7 @@ cand_control_inputs = widgetbox(*cand_controls, sizing_mode=sizing_mode)
 
 desc = Div()
 l = layout([[desc], [top_level_inputs], [cands_fig, cand_control_inputs],
-    [timeseries_fig], [table], [dedisp_fig, conv_fig]])
+    [timeseries_fig], [dedisp_fig, conv_fig]])
 curdoc().add_root(l)
 curdoc().title = "Candidates"
 
