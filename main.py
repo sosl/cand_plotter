@@ -271,12 +271,16 @@ def tap_callback(attr, old, new):
     max_snr = selected_cand["max_snr"].tolist()[0]
     _, _dedisp_block, _conv_block, _time, _series, _series_0DM = get_fbank_data_time(dm,
         time, 2**filter_ind, beam)
-    source_ts.data["time"] = _time
-    source_ts.data["series"] = _series
-    source_ts_0DM.data["time"] = _time
-    source_ts_0DM.data["series"] = _series_0DM
-    source_fb.data["image"] = [_dedisp_block]
-    source_fb_conv.data["image"] = [_conv_block]
+    source_ts.data = dict(
+            time = _time,
+            series = _series
+            )
+    source_ts_0DM.data = dict(
+            time = _time,
+            series = _series_0DM
+            )
+    source_fb.data = dict(image=[_dedisp_block])
+    source_fb_conv.data = dict(image=[_conv_block])
 
     print "getting primary beam"
     primary_beam = selected_cand["primary_beam"].tolist()[0]
@@ -297,13 +301,13 @@ def tap_callback(attr, old, new):
     print type(selected_cand)
     print selected_cand
     source_for_table.data = dict(
-      time = selected_cand["time"],
-      snr = selected_cand["snr"],
-      max_snr = selected_cand["max_snr"],
-      beam = selected_cand["beam"],
-      primary_beam = selected_cand["primary_beam"],
-      DM = selected_cand["DM"],
-      logwidth = selected_cand["logwidth"]
+      time = list(selected_cand["time"]),
+      snr = list(selected_cand["snr"]),
+      max_snr = list(selected_cand["max_snr"]),
+      beam = list(selected_cand["beam"]),
+      primary_beam = list(selected_cand["primary_beam"]),
+      DM = list(selected_cand["DM"]),
+      logwidth = list(selected_cand["logwidth"])
     )
 
 def tap_callback_table(attr, old, new):
