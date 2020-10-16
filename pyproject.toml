@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "cand_plotter"
+version = "0.1.0"
+description = ""
+authors = ["Stefan Oslowski <stefanoslowski@swin.edu.au>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pandas = "^1.1.3"
+bokeh = "^2.2.2"
+
+[tool.poetry.dev-dependencies]
+black = "^20.8b1"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
