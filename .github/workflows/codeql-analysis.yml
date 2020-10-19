@@ -38,7 +38,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.8'
+        python-version: '^3.8'
 
     # If this run was triggered by a pull request event, then checkout
     # the head of the pull request instead of the merge commit.
